@@ -49,3 +49,22 @@ https://youtu.be/GurZKf5M154?si=phTq2x0sMNIkXZB9
 
 
 I've few technologies that we have developed last year. And want to represent all these technologies as a tree form in my upcoming rangoli competition. So can you generate any good art of tree that represents all these technologies as a branch. It's just art rangoli.
+
+
+
+
+
+
+
+
+
+private static void writeOutput(String inputPath, Map<String, String> piiResult) throws IOException {
+        Files.write(Path.of(String.join(inputPath + "_out")), piiResult.entrySet().stream().map((entry) -> {
+            try {
+                return JSON.parse(entry.getValue());
+            } catch (Exception ignore) {
+                System.out.println("couldn't parse response for document: " + entry.getKey() + " value is:\n" + entry.getValue() + "-------");
+                return entry.getValue();
+            }
+        }).collect(Collectors.joining(", ")).getBytes());
+    }
