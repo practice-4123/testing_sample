@@ -68,3 +68,21 @@ private static void writeOutput(String inputPath, Map<String, String> piiResult)
             }
         }).collect(Collectors.joining(", ")).getBytes());
     }
+
+
+
+String output = piiResult.entrySet().stream()
+        .map(entry -> {
+            String value = entry.getValue();
+            // Fake "parse": check if it's likely JSON and return as-is or warn
+            if (value.trim().startsWith("{") && value.trim().endsWith("}")) {
+                return value; // looks like JSON, accept it
+            } else {
+                System.out.println("Couldn't parse response for document: " + entry.getKey() +
+                    "\nValue is:\n" + value + "\n-------");
+                return value; // fallback to raw value
+            }
+        })
+        .collect(Collectors.joining(", "));
+
+    Files.write(Path.of(inputPath + "_out"), output.getBytes());
