@@ -1,79 +1,8 @@
-
-import asyncio
-import json
-import os
-import sys
-from pathlib import Path
-from typing import Optional
-
-import uvicorn
-from openai import OpenAI
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
-from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
-
-import urllib
-from typing import Optional
-from urllib.parse import unquote
-
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
-
-app = FastAPI(title="vLLM API Gateway")
-
-llm_client = OpenAI(
-    api_key="token-abc123",  # Replace with your actual token or use env vars
-    base_url="http://127.0.0.1:8000/v1",  # vLLM server URL
-)
-
-class RequestPayload(BaseModel):
-    q: str
-
-@app.post("/generateStream")
-@app.get("/generateStream")
-async def generateStream(requestPayload: RequestPayload):
-    prompt = ""
-    async def stream_generate_response():
-        """
-        processing request in stream
-        """
-        completion = llm_client.chat.completions.create(
-            model="Qwen/Qwen2.5-7B-Instruct",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            seed=2025,
-            temperature=0.0,
-            stream=True,
-            presence_penalty=1
-        )
-        for chunk in completion:
-            content = chunk.choices[0].delta.content
-            if content is not None:
-                yield content
-                await asyncio.sleep(0.0001)
-
-    return StreamingResponse(stream_generate_response(), media_type='text/event-stream')
-
-def get_hostname() -> str:
-    return '0.0.0.0'
-
-if __name__ == "__main__":
-    port = os.getenv("SERVER_PORT", 8001)
-    uvicorn.run("gemma-3-12b-it:app", host=get_hostname(), port=int(port))
-
-
-requests.post("http://aiws1:8001/generateStream", data={"q": chunk})
-request: Request, requestPayload: Optional[RequestPayload] = Body(None), q: Optional[str] = Query(None)):
+def send_chunk_to_api(chunk: str) -> Dict:
+    try:
+        response = requests.post("http://aiws1:8001/generateStream", json={"q": urllib.parse.quote_plus(chunk)})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logging.error(f"API request failed: {e}")
+        return {}
