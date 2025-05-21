@@ -76,3 +76,4 @@ if __name__ == "__main__":
 
 
 requests.post("http://aiws1:8001/generateStream", data={"q": chunk})
+request: Request, requestPayload: Optional[RequestPayload] = Body(None), q: Optional[str] = Query(None)):
