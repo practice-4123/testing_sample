@@ -82,7 +82,7 @@ class SolrLLM(BaseModel):
         self.q = q
 
 class RequestPayload(BaseModel):
-    query: str
+    q: str
     # q: Optional[str] = Field(default=None)
     #
     # def __init__(self, q, **data):
@@ -92,7 +92,7 @@ class RequestPayload(BaseModel):
 async def generate(payload: RequestPayload):
     """
     """
-    print(payload.query)
+    print(payload.q)
     prompt = """
     Task: 
     Identify all personally identifiable information (PII) associated with name wise which are found in text 
@@ -184,7 +184,7 @@ async def generate(payload: RequestPayload):
     Important: JSON should be parsable.
     
     Input Text:
-    """ + payload.query + "\nOutput:"
+    """ + payload.q + "\nOutput:"
     completion = llm_client.chat.completions.create(
         model="Qwen/Qwen2.5-7B-Instruct",
         messages=[
@@ -308,7 +308,7 @@ async def process_request(q: str, use_case: str = "qa"):
 
 @app.post("/generateStream")
 @app.get("/generateStream")
-async def generateStream(q: str):
+async def generateStream(requestPayload: RequestPayload):
     """
     process request in stream
     """
@@ -348,7 +348,7 @@ async def generateStream(q: str):
     Important: JSON should be parsable.
 
     Input Text:
-    """ + q + "\nOutput:"
+    """ + requestPayload.q + "\nOutput:"
     async def stream_generate_response():
         """
         processing request in stream
