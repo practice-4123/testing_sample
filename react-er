@@ -1,8 +1,75 @@
 def send_chunk_to_api(chunk: str) -> Dict:
     try:
-        response = requests.post("http://aiws1:8001/generateStream", json={"q": urllib.parse.quote_plus(chunk)})
+        response = requests.post("http://aiws1:8001/generateStream", json={"q": chunk})
         response.raise_for_status()
         return response.json()
     except Exception as e:
         logging.error(f"API request failed: {e}")
         return {}
+
+
+@app.post("/generateStream")
+@app.get("/generateStream")
+async def generate_stream(request: Request, q: Optional[str] = Query(None), request_payload: Optional[RequestPayload] = Body(None)):
+    """
+    process request in stream
+    """
+
+    # prompt = q
+    prompt = """
+    Task:
+    Identify all personally identifiable information (PII) associated with name, find it within the given text without skip.
+
+    PII categories:
+    Home Address.
+    IP Address.
+    Phone Numbers.
+    Social Security Number.
+    Credit Card Number.
+    Account Number.
+    Passport Number.
+    License Number.
+    Dates of Birth.
+    Vehicle Registration Number.
+
+    Example:
+    Output:
+    {
+      "PII": {
+        "Christopher J. Chew": {
+          "social-security-number": [
+            "XXX-XX-3229"
+          ],
+          "address": [
+            "Gorgeaon-east"
+          ]
+        }
+      }
+    }
+
+    Important: JSON should be parsable.
+
+    Input Text:
+    """ + q if request.method == "GET" else request_payload.q + "\nOutput:"
+    async def stream_generate_response():
+        """
+        processing request in stream
+        """
+        completion = llm_client.chat.completions.create(
+            model="Qwen/Qwen2.5-7B-Instruct",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            seed=2025,
+            temperature=0.0,
+            stream=True,
+            presence_penalty=1
+        )
+        for chunk in completion:
+            content = chunk.choices[0].delta.content
+            if content is not None:
+                yield content
+                await asyncio.sleep(0.0001)
+
+    return StreamingResponse(stream_generate_response(), media_type='text/event-stream')
