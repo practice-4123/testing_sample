@@ -1,4 +1,4 @@
-# --------------------------------------------------- external package directory setup phase --------------------------------- #
+
 import asyncio
 import json
 import os
@@ -9,21 +9,10 @@ from typing import Optional
 import uvicorn
 from openai import OpenAI
 
-working_dir = os.path.dirname(os.path.realpath(__file__))
-os.chdir(working_dir)
-
-script_version = os.getenv('SCRIPT_VERSION')
-dependency_dir = os.path.join(Path(os.getcwd()).parent, f'sp_{script_version}')
-
-sys.path.append(dependency_dir)
-sys.path.append(os.getcwd())
-
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# os.environ['HF_TOKEN'] = os.getenv('HF_TOKEN')
-# --------------------------------------------------- external package directory setup phase --------------------------------- #
 
 
 from fastapi import FastAPI
@@ -43,312 +32,18 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI(title="vLLM API Gateway")
 
-# Initialize vLLMOpenAI client pointing to your running vLLM server
-# llm_client = VLLMOpenAI(
-#     openai_api_key="token-abc123",  # Replace with your actual token or use env vars
-#     openai_api_base="http://localhost:8001/v1",  # vLLM server URL
-#     # model_name="Qwen/Qwen2.5-7B-Instruct",
-# )
-
 llm_client = OpenAI(
     api_key="token-abc123",  # Replace with your actual token or use env vars
     base_url="http://127.0.0.1:8000/v1",  # vLLM server URL
 )
 
-# Define prompt templates for different use cases
-qa_template = PromptTemplate.from_template(
-    "You are a helpful assistant.\nQuestion: {question}\nAnswer step-by-step:"
-)
-
-pii_template = PromptTemplate.from_template(
-    """Identify all personally identifiable information (PII) associated with name wise which are found  and find it within the given text without skip and output the findings in the following keys: 'type' (e.g. 'full_address', 'email', 'phone_number') and 'value' (the actual PII value) For each EntityName strictly respond in following json format only: 
-    {{
-        "PII": {{
-            "EntityName": [values]
-            }}
-    }}
-    """
-)
-
-
-# qa_chain = qa_template | llm_client | StrOutputParser()
-# pii_chain = pii_template | llm_client | StrOutputParser()
-
-class SolrLLM(BaseModel):
-    q: Optional[str] = Field(default=None)
-
-    def __init__(self, q=None, **data):
-        super().__init__(**data)
-        self.q = q
-
 class RequestPayload(BaseModel):
     q: str
-    # q: Optional[str] = Field(default=None)
-    #
-    # def __init__(self, q, **data):
-    #     super().__init__(**data)
-
-@app.post("/generate")
-async def generate(payload: RequestPayload):
-    """
-    """
-    print(payload.q)
-    prompt = """
-    Task: 
-    Identify all personally identifiable information (PII) associated with name wise which are found in text 
-    and find it within the given text without skip and output the findings in the following categories
-    
-    PII categories:
-    Full Names (e.g., first and last names)
-    Email Addresses
-    Phone Numbers (including various formats and country codes)
-    Social Security Numbers (SSNs) or equivalent national identification numbers
-    Credit Card Numbers
-    Physical Addresses (street, city, postal code, region, country)
-    Dates of Birth
-    Account Numbers (e.g., bank accounts)
-    Passport Numbers
-    Driver’s License Numbers
-    IP Addresses
-    Biometric Identifiers (e.g., fingerprints, facial recognition data)
-    Health Information (medical records, health insurance numbers)
-    Employer or Workplace Information
-    Personal Characteristics (gender, race, ethnicity)
-    Financial Information (income, credit scores)
-    Usernames or Online Identifiers
-    Vehicle Registration Numbers
-    Any other unique identifiers that can link data to an individual
-    
-    Example:
-    Input:
-        text: 
-            Lender : McLean Mortgage Corporation Primary File Name : Christopher J. Chew
-            Audit Type : Routine QC External ID # : 1217014150
-            
-            (ef-Var-e-l Maye) qtarelicey a}
-            Property Address : 4349 French Acors Rd Originator : Jacqueline Sommer
-            City, State : Spotsylvania VA Processor : Amanda McFadden
-            Zip Code : 22551 Appraiser : Robert A. Buechner, Jr.
-            Lender Loan Number : 1217014150 Underwriter : Trisha Dukes
-            Corr/Broker : NIA Branch : Fairfax, VA
-            
-            Moy: Ta lavcedaratcliceyal
-            
-            Loan Type : FHA Number of Units > 1
-            
-            Program Type : FHA: 203b - Basic LTV : 96.50%
-            Purpose : Purchase CLTV : 96.50%
-            Documentation : Desktop Underwriter Term In Months : 360
-            Disposition : Closed Interest Rate : 4.375%
-            Purchase Price : $236,843.00 P&l : $1,161.10
-            Appraised Value : $237,500.00 Housing Ratio : 28.28%
-            Loan Amount : $228,553.00 Debt Ratio : 43.11%
-            Risk Code : NIA Date Applied : 09/18/2017
-            D/T U/W :  Approve/Eligible Date Approved : 10/12/2017
-            AUS System : NIA Date Closed : 10/13/2017
-            AUS Decision : NIA
-            
-            Borrower Information
-            Borrower Name Social Security Number Credit Score Self-Employed Intends To Occupy
-            Christopher J. Chew XXX-XX-3229 614 No Yes
-            NIA
-            PNGolim lalcolaattelicey a
-            
-            Reason for Audit : Routine QC APR Validation Performed : No
-            QM/ATR Analysis : QM / Safe Harbor State Compliance Review Performed : No
-            Audit Date : 12/06/2017 QMI/ATR Free of Exceptions : Yes
-            
-            Appraisal Desktop Review Completed : Yes
-            Occupancy Review Completed : Yes
-    
-    Output:
-    {
-      "PII": {
-        "Christopher J. Chew": {
-          "social_security_number": [
-            "XXX-XX-3229"
-          ],
-          "credit_score": [
-            "614"
-          ],
-          "address": [
-            "Gorgeaon-east"
-          ],
-          "Audit Date": [
-            "12/06/2017"
-          ] 
-        }    
-      }
-    }
-      
-    Important: JSON should be parsable.
-    
-    Input Text:
-    """ + payload.q + "\nOutput:"
-    completion = llm_client.chat.completions.create(
-        model="Qwen/Qwen2.5-7B-Instruct",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"},
-        seed=2025,
-        temperature=0.0
-    )
-    return json.loads(completion.choices[0].message.content)
-
-
-@app.get("/generate")
-async def process_request(q: str, use_case: str = "qa"):
-    """
-    process request
-    """
-    prompt = """
-    Task: 
-    Identify all personally identifiable information (PII) associated with name wise which are found in text 
-    and find it within the given text without skip and output the findings in the following categories
-    
-    PII categories:
-    Full Names (e.g., first and last names)
-    Email Addresses
-    Phone Numbers (including various formats and country codes)
-    Social Security Numbers (SSNs) or equivalent national identification numbers
-    Credit Card Numbers
-    Physical Addresses (street, city, postal code, region, country)
-    Dates of Birth
-    Account Numbers (e.g., bank accounts)
-    Passport Numbers
-    Driver’s License Numbers
-    IP Addresses
-    Biometric Identifiers (e.g., fingerprints, facial recognition data)
-    Health Information (medical records, health insurance numbers)
-    Employer or Workplace Information
-    Personal Characteristics (gender, race, ethnicity)
-    Financial Information (income, credit scores)
-    Usernames or Online Identifiers
-    Vehicle Registration Numbers
-    Any other unique identifiers that can link data to an individual
-    
-    Example:
-    Input:
-        text: 
-            Lender : McLean Mortgage Corporation Primary File Name : Christopher J. Chew
-            Audit Type : Routine QC External ID # : 1217014150
-            
-            (ef-Var-e-l Maye) qtarelicey a}
-            Property Address : 4349 French Acors Rd Originator : Jacqueline Sommer
-            City, State : Spotsylvania VA Processor : Amanda McFadden
-            Zip Code : 22551 Appraiser : Robert A. Buechner, Jr.
-            Lender Loan Number : 1217014150 Underwriter : Trisha Dukes
-            Corr/Broker : NIA Branch : Fairfax, VA
-            
-            Moy: Ta lavcedaratcliceyal
-            
-            Loan Type : FHA Number of Units > 1
-            
-            Program Type : FHA: 203b - Basic LTV : 96.50%
-            Purpose : Purchase CLTV : 96.50%
-            Documentation : Desktop Underwriter Term In Months : 360
-            Disposition : Closed Interest Rate : 4.375%
-            Purchase Price : $236,843.00 P&l : $1,161.10
-            Appraised Value : $237,500.00 Housing Ratio : 28.28%
-            Loan Amount : $228,553.00 Debt Ratio : 43.11%
-            Risk Code : NIA Date Applied : 09/18/2017
-            D/T U/W :  Approve/Eligible Date Approved : 10/12/2017
-            AUS System : NIA Date Closed : 10/13/2017
-            AUS Decision : NIA
-            
-            Borrower Information
-            Borrower Name Social Security Number Credit Score Self-Employed Intends To Occupy
-            Christopher J. Chew XXX-XX-3229 614 No Yes
-            NIA
-            PNGolim lalcolaattelicey a
-            
-            Reason for Audit : Routine QC APR Validation Performed : No
-            QM/ATR Analysis : QM / Safe Harbor State Compliance Review Performed : No
-            Audit Date : 12/06/2017 QMI/ATR Free of Exceptions : Yes
-            
-            Appraisal Desktop Review Completed : Yes
-            Occupancy Review Completed : Yes
-    
-    Output:
-    {
-      "PII": {
-        "Christopher J. Chew": {
-          "social_security_number": [
-            "XXX-XX-3229"
-          ],
-          "credit_score": [
-            "614"
-          ],
-          "address": [
-            "Gorgeaon-east"
-          ],
-          "Audit Date": [
-            "12/06/2017"
-          ] 
-        }    
-      }
-    }
-      
-    Important: JSON should be parsable.
-    
-    Input Text:
-    """ + q + "\nOutput:"
-    completion = llm_client.chat.completions.create(
-        model="Qwen/Qwen2.5-7B-Instruct",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"},
-        seed=2025,
-        temperature=0.0,
-    )
-    return completion.choices[0].message.content
-
 
 @app.post("/generateStream")
 @app.get("/generateStream")
 async def generateStream(requestPayload: RequestPayload):
-    """
-    process request in stream
-    """
-
-    # prompt = q
-    prompt = """
-    Task:
-    Identify all personally identifiable information (PII) associated with name, find it within the given text without skip.
-
-    PII categories:
-    Home Address.
-    IP Address.
-    Phone Numbers.
-    Social Security Number.
-    Credit Card Number.
-    Account Number.
-    Passport Number.
-    License Number.
-    Dates of Birth.
-    Vehicle Registration Number.
-
-    Example:
-    Output:
-    {
-      "PII": {
-        "Christopher J. Chew": {
-          "social-security-number": [
-            "XXX-XX-3229"
-          ],
-          "address": [
-            "Gorgeaon-east"
-          ]
-        }
-      }
-    }
-
-    Important: JSON should be parsable.
-
-    Input Text:
-    """ + requestPayload.q + "\nOutput:"
+    prompt = ""
     async def stream_generate_response():
         """
         processing request in stream
@@ -372,39 +67,12 @@ async def generateStream(requestPayload: RequestPayload):
 
     return StreamingResponse(stream_generate_response(), media_type='text/event-stream')
 
-    # stream = True
-    # completion = llm_client.completions.create(
-    #     model="Qwen/Qwen2.5-7B-Instruct",
-    #     prompt="""Identify all personally identifiable information (PII) associated with name wise which are found  and find it within the given text without skip and output the findings in the following keys: 'type' (e.g. 'full_address', 'email', 'phone_number') and 'value' (the actual PII value) For each EntityName strictly respond in following json format only:
-    # {{
-    #     "PII": {{
-    #         "EntityName": [values]
-    #         }}
-    # }}
-    #
-    # text:
-    # """.join(q),
-    #     echo=True,
-    #     n=2,
-    #     stream=stream,
-    #     logprobs=3)
-    # for c in completion:
-    #     print(c)
-    # return ""
-
-
-@app.get("/")
-async def root():
-    return {"message": "vLLM API Gateway is running."}
-
-@app.get("/test")
-async def test():
-    await asyncio.sleep(7)
-    return {"message": "completed"}
-
-
 def get_hostname() -> str:
     return '0.0.0.0'
+
+if __name__ == "__main__":
+    port = os.getenv("SERVER_PORT", 8001)
+    uvicorn.run("gemma-3-12b-it:app", host=get_hostname(), port=int(port))
 
 
 if __name__ == "__main__":
