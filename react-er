@@ -75,6 +75,4 @@ if __name__ == "__main__":
     uvicorn.run("gemma-3-12b-it:app", host=get_hostname(), port=int(port))
 
 
-if __name__ == "__main__":
-    port = os.getenv("SERVER_PORT", 8001)
-    uvicorn.run("gemma-3-12b-it:app", host=get_hostname(), port=int(port))
+requests.post("http://aiws1:8001/generateStream", data={"q": chunk})
